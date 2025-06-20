@@ -1,10 +1,6 @@
 RewriteEngine On
 RewriteBase /sari/
 
-# Redirect to https if available
-# RewriteCond %{HTTPS} off
-# RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
-
 # Prevent directory browsing
 Options -Indexes
 
@@ -12,7 +8,7 @@ Options -Indexes
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)/$ /sari/$1 [L,R=301]
 
-# Route all requests through router.php
+# Route all requests through index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]
+RewriteRule ^(.*)$ index.php [QSA,L]
