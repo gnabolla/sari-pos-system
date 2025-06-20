@@ -27,6 +27,7 @@
     <link href="/sari/assets/css/style.css" rel="stylesheet">
     
     <!-- PWA Scripts -->
+    <script src="/sari/js/network-manager.js"></script>
     <script src="/sari/js/offline-storage.js"></script>
     <script src="/sari/js/sync-manager.js"></script>
 </head>

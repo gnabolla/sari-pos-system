@@ -22,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $owner_last_name = sanitize_input($_POST['last_name']);
     $email = sanitize_input($_POST['email']);
     $phone = sanitize_input($_POST['phone']);
-    $username = sanitize_input($_POST['username']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
     
@@ -37,10 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors[] = "Please enter a valid email address";
     }
     
-    if (strlen($username) < 4) {
-        $errors[] = "Username must be at least 4 characters long";
-    }
-    
     if (strlen($password) < 6) {
         $errors[] = "Password must be at least 6 characters long";
     }
@@ -53,55 +48,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         try {
             $db->beginTransaction();
             
-            // Check if username or email already exists
-            $check_query = "SELECT COUNT(*) FROM users WHERE username = ? OR email = ?";
+            // Check if email already exists
+            $check_query = "SELECT COUNT(*) FROM users WHERE email = ?";
             $check_stmt = $db->prepare($check_query);
-            $check_stmt->execute([$username, $email]);
+            $check_stmt->execute([$email]);
             
             if ($check_stmt->fetchColumn() > 0) {
-                $errors[] = "Username or email already exists";
+                $errors[] = "Email already exists";
             } else {
                 // Generate subdomain from store name
                 $subdomain = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $store_name));
                 $subdomain = substr($subdomain, 0, 50); // Limit length
                 
-                // Make sure subdomain is unique
-                $subdomain_check = "SELECT COUNT(*) FROM tenants WHERE subdomain = ?";
-                $subdomain_stmt = $db->prepare($subdomain_check);
-                $original_subdomain = $subdomain;
-                $counter = 1;
-                
-                do {
-                    $subdomain_stmt->execute([$subdomain]);
-                    if ($subdomain_stmt->fetchColumn() > 0) {
-                        $subdomain = $original_subdomain . $counter;
-                        $counter++;
-                    } else {
-                        break;
-                    }
-                } while (true);
-                
-                // Create tenant (check if plan column exists)
-                try {
-                    $tenant_query = "INSERT INTO tenants (name, subdomain, contact_email, contact_phone, address, plan, trial_ends_at) 
-                                    VALUES (?, ?, ?, ?, ?, 'free', DATE_ADD(NOW(), INTERVAL 30 DAY))";
-                    $tenant_stmt = $db->prepare($tenant_query);
-                    $tenant_stmt->execute([$store_name, $subdomain, $email, $phone, $store_address]);
-                } catch (Exception $e) {
-                    // If plan column doesn't exist, use basic version
-                    $tenant_query = "INSERT INTO tenants (name, subdomain, contact_email, contact_phone, address) 
-                                    VALUES (?, ?, ?, ?, ?)";
-                    $tenant_stmt = $db->prepare($tenant_query);
-                    $tenant_stmt->execute([$store_name, $subdomain, $email, $phone, $store_address]);
-                }
+                // Create tenant
+                $tenant_query = "INSERT INTO tenants (name, email, phone, address, subscription_plan, subscription_status, trial_ends_at) 
+                                VALUES (?, ?, ?, ?, 'free', 'trial', DATE_ADD(NOW(), INTERVAL 30 DAY))";
+                $tenant_stmt = $db->prepare($tenant_query);
+                $tenant_stmt->execute([$store_name, $email, $phone, $store_address]);
                 $tenant_id = $db->lastInsertId();
                 
                 // Create admin user
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $user_query = "INSERT INTO users (tenant_id, username, email, password, first_name, last_name, role) 
-                              VALUES (?, ?, ?, ?, ?, ?, 'admin')";
+                $full_name = $owner_first_name . ' ' . $owner_last_name;
+                $user_query = "INSERT INTO users (tenant_id, email, password, full_name, role) 
+                              VALUES (?, ?, ?, ?, 'admin')";
                 $user_stmt = $db->prepare($user_query);
-                $user_stmt->execute([$tenant_id, $username, $email, $password_hash, $owner_first_name, $owner_last_name]);
+                $user_stmt->execute([$tenant_id, $email, $password_hash, $full_name]);
                 
                 // Create default categories for the new tenant
                 $default_categories = [

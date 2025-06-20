@@ -25,12 +25,22 @@ $protectedRoutes = [
 $apiRoutes = [
     'api/process-sale' => 'api/process_sale.php',
     'api/dashboard-stats' => 'api/dashboard_stats.php',
-    'api/sale-details' => 'api/sale_details.php'
+    'api/sale-details' => 'api/sale_details.php',
+    'api/sync-sale' => 'api/sync_sale.php',
+    'api/sync-product' => 'api/sync_product.php',
+    'api/sync-inventory' => 'api/sync_inventory.php',
+    'api/ping' => 'api/ping.php'
 ];
 
 if (empty($route)) {
-    require 'landing.php';
-    exit();
+    // If user is logged in, redirect to dashboard, otherwise show landing page
+    if (isset($_SESSION['user_id'])) {
+        header('Location: /sari/dashboard');
+        exit();
+    } else {
+        require 'landing.php';
+        exit();
+    }
 }
 
 if ($route == 'dashboard') {

@@ -6,7 +6,7 @@ require_once 'config/database.php';
 require_once 'includes/functions.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: /sari/');
+    header('Location: /sari/dashboard');
     exit();
 }
 
@@ -17,10 +17,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $password = $_POST['password'];
     
     if (!empty($username) && !empty($password)) {
-        $query = "SELECT u.*, t.name as tenant_name, t.status as tenant_status 
+        $query = "SELECT u.*, t.name as tenant_name, t.subscription_status as tenant_status 
                   FROM users u 
                   JOIN tenants t ON u.tenant_id = t.id 
-                  WHERE u.username = ? AND u.status = 'active' AND t.status = 'active'";
+                  WHERE u.email = ? AND u.status = 'active' AND t.subscription_status IN ('active', 'trial')";
         $stmt = $db->prepare($query);
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -28,12 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($user && password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['tenant_id'] = $user['tenant_id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['full_name'] = $user['first_name'] . ' ' . $user['last_name'];
+            $_SESSION['username'] = $user['email'];
+            $_SESSION['full_name'] = $user['full_name'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['tenant_name'] = $user['tenant_name'];
             
-            header('Location: /sari/');
+            header('Location: /sari/dashboard');
             exit();
         } else {
             $error_message = 'Invalid credentials or account is inactive.';
@@ -95,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         <form method="POST">
             <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" class="form-control" id="username" name="username" required>
+                <label for="username" class="form-label">Email</label>
+                <input type="email" class="form-control" id="username" name="username" required>
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Password</label>

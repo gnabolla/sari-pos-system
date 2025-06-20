@@ -59,25 +59,40 @@ class SyncManager {
             const offlineSales = await this.offlineStorage.getOfflineSales();
             const syncQueue = await this.offlineStorage.getSyncQueue();
             
+            // Only sync if there's data to sync
+            if (offlineSales.length === 0 && syncQueue.length === 0) {
+                return; // Nothing to sync
+            }
+            
+            let syncedSales = 0;
+            let syncedItems = 0;
+            
             // Sync offline sales
             for (const sale of offlineSales) {
                 if (!sale.synced) {
-                    await this.syncSale(sale);
+                    const success = await this.syncSale(sale);
+                    if (success) syncedSales++;
                 }
             }
             
             // Process sync queue
             for (const item of syncQueue) {
-                await this.processSyncQueueItem(item);
+                const success = await this.processSyncQueueItem(item);
+                if (success) syncedItems++;
             }
             
-            if (offlineSales.length > 0 || syncQueue.length > 0) {
-                this.showSyncNotification(`Synced ${offlineSales.length} sales and ${syncQueue.length} items`);
+            // Only show notification if something was actually synced
+            if (syncedSales > 0 || syncedItems > 0) {
+                this.showSyncNotification(`Synced ${syncedSales} sales and ${syncedItems} items`);
             }
             
         } catch (error) {
             console.error('Sync failed:', error);
-            this.showSyncNotification('Sync failed. Will retry later.', 'error');
+            // Only show error if there was actually data to sync
+            const hasDataToSync = await this.hasDataToSync();
+            if (hasDataToSync) {
+                this.showSyncNotification('Sync failed. Will retry later.', 'error');
+            }
         } finally {
             this.syncInProgress = false;
         }
@@ -121,7 +136,7 @@ class SyncManager {
                     break;
                 default:
                     console.log('Unknown sync type:', item.type);
-                    return;
+                    return false;
             }
             
             const response = await fetch(endpoint, {
@@ -135,9 +150,12 @@ class SyncManager {
             if (response.ok) {
                 await this.offlineStorage.removeFromSyncQueue(item.id);
                 console.log('Queue item synced:', item.type);
+                return true;
             }
+            return false;
         } catch (error) {
             console.error('Error processing sync queue item:', error);
+            return false;
         }
     }
     
@@ -181,6 +199,11 @@ class SyncManager {
             queue: syncQueue.length,
             total: offlineSales.length + syncQueue.length
         };
+    }
+    
+    async hasDataToSync() {
+        const counts = await this.getOfflineDataCount();
+        return counts.total > 0;
     }
 }
 
