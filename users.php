@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
@@ -7,7 +9,7 @@ check_session();
 
 // Only admin can manage users
 if (!is_admin()) {
-    header('Location: index.php');
+    header('Location: /sari/');
     exit();
 }
 

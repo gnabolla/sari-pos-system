@@ -1,10 +1,12 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: /sari/');
     exit();
 }
 
@@ -31,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['role'] = $user['role'];
             $_SESSION['tenant_name'] = $user['tenant_name'];
             
-            header('Location: index.php');
+            header('Location: /sari/');
             exit();
         } else {
             $error_message = 'Invalid credentials or account is inactive.';
@@ -104,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </form>
         
         <div class="mt-3 text-center">
-            <p class="mb-2">Don't have a store yet? <a href="register.php" class="text-primary fw-bold">Register for Free</a></p>
+            <p class="mb-2">Don't have a store yet? <a href="/sari/register" class="text-primary fw-bold">Register for Free</a></p>
         </div>
     </div>
     

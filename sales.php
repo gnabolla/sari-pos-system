@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
@@ -161,7 +163,7 @@ function viewSaleDetails(saleId) {
     modal.show();
     
     // Fetch sale details
-    fetch(`api/sale_details.php?id=${saleId}`)
+    fetch(`/sari/api/sale-details?id=${saleId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

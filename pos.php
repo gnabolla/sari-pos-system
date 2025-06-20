@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
@@ -37,7 +39,17 @@ include 'views/header.php';
         </div>
         <div class="col-md-9">
             <div class="main-content">
-                <h2 class="mb-4">Point of Sale</h2>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0">Point of Sale</h2>
+                    <div class="d-flex gap-2">
+                        <div id="offline-sales-counter" class="badge bg-info" style="display: none;">
+                            <i class="bi bi-cloud-arrow-up"></i> <span id="offline-count">0</span> pending sync
+                        </div>
+                        <div id="network-status" class="badge bg-success">
+                            <i class="bi bi-wifi"></i> Online
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Mobile-First Layout -->
                 <div class="row pos-container">
@@ -181,9 +193,309 @@ include 'views/header.php';
     </div>
 </div>
 
+<!-- Include offline storage functionality -->
+<script src="js/offline-storage.js"></script>
+
+<style>
+/* Offline status styles */
+#network-status {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+}
+
+#offline-sales-counter {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.6rem;
+    cursor: pointer;
+}
+
+#offline-sales-counter:hover {
+    opacity: 0.8;
+}
+
+/* Toast notification styles */
+.alert.position-fixed {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: none;
+    border-radius: 8px;
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0a3622;
+    border-left: 4px solid #198754;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+    border-left: 4px solid #ffc107;
+}
+
+.alert-info {
+    background-color: #cfe2ff;
+    color: #055160;
+    border-left: 4px solid #0dcaf0;
+}
+
+/* Mobile responsive badges */
+@media (max-width: 576px) {
+    .d-flex.gap-2 {
+        flex-direction: column;
+        gap: 0.25rem !important;
+    }
+    
+    #network-status, #offline-sales-counter {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* Offline mode visual cues */
+.offline-mode {
+    position: relative;
+}
+
+.offline-mode::after {
+    content: "📴";
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 12px;
+    background: #ffc107;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+
 <script>
 let cart = [];
 let cartTotal = 0;
+let isOffline = false;
+let offlineStorage = null;
+let networkManager = null;
+let tenantId = <?php echo json_encode($tenant_id); ?>;
+let originalProducts = <?php echo json_encode($products); ?>;
+
+// Initialize offline functionality
+async function initializeOfflineMode() {
+    try {
+        // Wait for offline storage to be available
+        while (!window.offlineStorage || !window.networkManager) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        offlineStorage = window.offlineStorage;
+        networkManager = window.networkManager;
+        
+        // Wait for offline storage to initialize
+        await offlineStorage.init();
+        
+        // Cache current products
+        await offlineStorage.cacheProducts(originalProducts, tenantId);
+        
+        // Set up network status monitoring
+        networkManager.onStatusChange(handleNetworkStatusChange);
+        
+        // Initial network status check
+        updateNetworkStatus(navigator.onLine);
+        
+        // Sync any pending offline sales
+        if (navigator.onLine) {
+            await syncOfflineSales();
+        }
+        
+        console.log('Offline mode initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize offline mode:', error);
+    }
+}
+
+// Handle network status changes
+function handleNetworkStatusChange(status) {
+    const isOnline = status === 'online';
+    updateNetworkStatus(isOnline);
+    
+    if (isOnline) {
+        syncOfflineSales();
+        showSuccessMessage('Connection restored! Syncing offline data...');
+    } else {
+        showWarningMessage('You are now offline. Sales will be stored locally.');
+    }
+}
+
+// Update network status indicator
+function updateNetworkStatus(online) {
+    isOffline = !online;
+    const statusElement = document.getElementById('network-status');
+    
+    if (online) {
+        statusElement.className = 'badge bg-success';
+        statusElement.innerHTML = '<i class="bi bi-wifi"></i> Online';
+    } else {
+        statusElement.className = 'badge bg-warning';
+        statusElement.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
+    }
+    
+    // Update offline sales counter
+    updateOfflineSalesCounter();
+}
+
+// Update offline sales counter
+async function updateOfflineSalesCounter() {
+    if (!offlineStorage) return;
+    
+    try {
+        const offlineSales = await offlineStorage.getOfflineSales();
+        const pendingSales = offlineSales.filter(sale => !sale.synced);
+        const counterElement = document.getElementById('offline-sales-counter');
+        const countElement = document.getElementById('offline-count');
+        
+        if (pendingSales.length > 0) {
+            countElement.textContent = pendingSales.length;
+            counterElement.style.display = 'block';
+        } else {
+            counterElement.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error updating offline sales counter:', error);
+    }
+}
+
+// Sync offline sales when connection is restored
+async function syncOfflineSales() {
+    if (!offlineStorage || isOffline) return;
+    
+    try {
+        const offlineSales = await offlineStorage.getOfflineSales();
+        
+        for (const sale of offlineSales) {
+            if (!sale.synced) {
+                try {
+                    const response = await fetch('/sari/api/process-sale', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            ...sale,
+                            offline_sale: true,
+                            original_timestamp: sale.timestamp
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        await offlineStorage.removeSyncedSale(sale.id);
+                        console.log('Synced offline sale:', sale.id);
+                    } else {
+                        console.error('Failed to sync sale:', sale.id, result.message);
+                    }
+                } catch (error) {
+                    console.error('Error syncing sale:', sale.id, error);
+                }
+            }
+        }
+        
+        const remainingSales = await offlineStorage.getOfflineSales();
+        if (remainingSales.length === 0) {
+            showSuccessMessage('All offline sales synced successfully!');
+        }
+        
+        // Update counter after sync
+        updateOfflineSalesCounter();
+    } catch (error) {
+        console.error('Error during sync:', error);
+    }
+}
+
+// Load products from cache when offline
+async function loadOfflineProducts() {
+    if (!offlineStorage) return;
+    
+    try {
+        const cachedProducts = await offlineStorage.getCachedProducts(tenantId);
+        if (cachedProducts.length > 0) {
+            updateProductGrid(cachedProducts);
+            showInfoMessage('Showing cached products (offline mode)');
+        }
+    } catch (error) {
+        console.error('Error loading offline products:', error);
+    }
+}
+
+// Update product grid with new products
+function updateProductGrid(products) {
+    const productGrid = document.getElementById('product-grid');
+    
+    let gridHTML = '';
+    products.forEach(product => {
+        gridHTML += `
+            <div class="product-item" data-category="${product.category_id}" data-product='${JSON.stringify(product).replace(/'/g, '&apos;')}'>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 small">${escapeHtml(product.name)}</h6>
+                        <small class="text-muted">${escapeHtml(product.category_name || 'No Category')}</small>
+                        <div class="mt-1">
+                            <span class="fw-bold text-success small">₱${parseFloat(product.selling_price).toFixed(2)}</span>
+                            <span class="text-muted ms-2 small">Stock: ${product.stock_quantity}</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="addToCart(${JSON.stringify(product).replace(/"/g, '&quot;')})">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    productGrid.innerHTML = gridHTML;
+}
+
+// Utility function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Show different types of messages
+function showSuccessMessage(message) {
+    showMessage(message, 'success');
+}
+
+function showWarningMessage(message) {
+    showMessage(message, 'warning');
+}
+
+function showInfoMessage(message) {
+    showMessage(message, 'info');
+}
+
+function showMessage(message, type) {
+    // Create a toast-like notification
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
 
 // Product search and filtering
 document.getElementById('product-search').addEventListener('input', function() {
@@ -192,22 +504,32 @@ document.getElementById('product-search').addEventListener('input', function() {
 });
 
 // Barcode scanner support - scanners typically send Enter key after scanning
-document.getElementById('product-search').addEventListener('keypress', function(event) {
+document.getElementById('product-search').addEventListener('keypress', async function(event) {
     if (event.key === 'Enter') {
         event.preventDefault();
         const barcode = this.value.trim();
         
         // Try to find product by exact barcode match
         if (barcode) {
-            const products = document.querySelectorAll('.product-item');
             let foundProduct = null;
             
+            // First try to find in currently displayed products
+            const products = document.querySelectorAll('.product-item');
             products.forEach(product => {
                 const productData = JSON.parse(product.dataset.product);
                 if (productData.barcode && productData.barcode === barcode) {
                     foundProduct = productData;
                 }
             });
+            
+            // If not found and offline storage is available, check cached products
+            if (!foundProduct && offlineStorage) {
+                try {
+                    foundProduct = await offlineStorage.findProductByBarcode(barcode);
+                } catch (error) {
+                    console.error('Error searching offline products:', error);
+                }
+            }
             
             if (foundProduct) {
                 addToCart(foundProduct);
@@ -217,6 +539,9 @@ document.getElementById('product-search').addEventListener('keypress', function(
             } else {
                 // If no exact barcode match, keep the normal search behavior
                 filterProducts();
+                if (isOffline) {
+                    showWarningMessage('Product not found in offline cache');
+                }
             }
         }
     }
@@ -378,7 +703,7 @@ function clearCart() {
     }
 }
 
-function processCheckout() {
+async function processCheckout() {
     if (cart.length === 0) {
         alert('Cart is empty!');
         return;
@@ -400,32 +725,83 @@ function processCheckout() {
         items: cart,
         payment_method: paymentMethod,
         discount_amount: discount,
-        total_amount: cartTotal
+        total_amount: cartTotal,
+        tenant_id: tenantId
     };
     
-    fetch('api/process_sale.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(saleData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Sale processed successfully!\nTransaction: ' + data.transaction_number);
+    // If offline, save to local storage
+    if (isOffline) {
+        try {
+            const offlineSale = await offlineStorage.saveSaleOffline(saleData);
+            showSuccessMessage(`Sale saved offline!\nTransaction: ${offlineSale.id}`);
+            
+            // Clear cart
             cart = [];
             updateCartDisplay();
             updateTotals();
             document.getElementById('discount-amount').value = '';
             document.getElementById('cash-received').value = '';
+            
+            // Update offline counter
+            updateOfflineSalesCounter();
+            
+            refocusSearch();
+        } catch (error) {
+            console.error('Error saving offline sale:', error);
+            alert('Error saving offline sale. Please try again.');
+        }
+        return;
+    }
+    
+    // Online processing
+    try {
+        const response = await fetch('/sari/api/process-sale', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(saleData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showSuccessMessage('Sale processed successfully!\nTransaction: ' + data.transaction_number);
+            cart = [];
+            updateCartDisplay();
+            updateTotals();
+            document.getElementById('discount-amount').value = '';
+            document.getElementById('cash-received').value = '';
+            refocusSearch();
         } else {
             alert('Error processing sale: ' + data.message);
         }
-    })
-    .catch(error => {
-        alert('Error processing sale. Please try again.');
-    });
+    } catch (error) {
+        // If online processing fails, try to save offline
+        if (offlineStorage) {
+            try {
+                const offlineSale = await offlineStorage.saveSaleOffline(saleData);
+                showWarningMessage(`Network error! Sale saved offline.\nTransaction: ${offlineSale.id}`);
+                
+                // Clear cart
+                cart = [];
+                updateCartDisplay();
+                updateTotals();
+                document.getElementById('discount-amount').value = '';
+                document.getElementById('cash-received').value = '';
+                
+                // Update offline counter
+                updateOfflineSalesCounter();
+                
+                refocusSearch();
+            } catch (offlineError) {
+                console.error('Error saving offline sale:', offlineError);
+                alert('Error processing sale and saving offline. Please try again.');
+            }
+        } else {
+            alert('Error processing sale. Please try again.');
+        }
+    }
 }
 
 // Clear search field
@@ -497,10 +873,37 @@ addToCart = function(product) {
     }
 };
 
+// Add click handler for offline counter
+document.getElementById('offline-sales-counter').addEventListener('click', async function() {
+    if (!offlineStorage) return;
+    
+    try {
+        const offlineSales = await offlineStorage.getOfflineSales();
+        const pendingSales = offlineSales.filter(sale => !sale.synced);
+        
+        if (pendingSales.length > 0) {
+            const message = `You have ${pendingSales.length} offline sale(s) waiting to sync:\n\n` +
+                          pendingSales.map(sale => `• ${sale.id} - ₱${sale.total_amount.toFixed(2)}`).join('\n') +
+                          '\n\nThese will sync automatically when internet connection is restored.';
+            alert(message);
+        }
+    } catch (error) {
+        console.error('Error showing offline sales details:', error);
+    }
+});
+
+// Periodic sync check (every 30 seconds when online)
+setInterval(() => {
+    if (!isOffline && offlineStorage) {
+        syncOfflineSales();
+    }
+}, 30000);
+
 // Initialize
 document.getElementById('payment-method').addEventListener('change', calculateChange);
 document.addEventListener('DOMContentLoaded', function() {
     initializeMobileView();
+    initializeOfflineMode();
 });
 </script>
 

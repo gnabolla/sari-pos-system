@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
@@ -30,7 +32,7 @@ include 'views/header.php';
                                 </div>
                                 <h4>Step 1: Add Products</h4>
                                 <p>Start by adding your inventory items. Include names, prices, and barcodes.</p>
-                                <a href="products.php" class="btn btn-primary">
+                                <a href="/sari/products" class="btn btn-primary">
                                     <i class="bi bi-plus"></i> Add Products
                                 </a>
                             </div>
@@ -45,7 +47,7 @@ include 'views/header.php';
                                 </div>
                                 <h4>Step 2: Start Selling</h4>
                                 <p>Use the POS to process sales. Works with barcode scanners too!</p>
-                                <a href="pos.php" class="btn btn-success">
+                                <a href="/sari/pos" class="btn btn-success">
                                     <i class="bi bi-cart"></i> Open POS
                                 </a>
                             </div>
@@ -60,7 +62,7 @@ include 'views/header.php';
                                 </div>
                                 <h4>Step 3: Track Progress</h4>
                                 <p>Monitor sales, inventory levels, and generate reports.</p>
-                                <a href="reports.php" class="btn btn-info">
+                                <a href="/sari/reports" class="btn btn-info">
                                     <i class="bi bi-bar-chart"></i> View Reports
                                 </a>
                             </div>
@@ -91,7 +93,7 @@ include 'views/header.php';
                 </div>
                 
                 <div class="text-center mt-4">
-                    <a href="index.php" class="btn btn-primary btn-lg">
+                    <a href="/sari/" class="btn btn-primary btn-lg">
                         <i class="bi bi-speedometer"></i> Go to Dashboard
                     </a>
                 </div>

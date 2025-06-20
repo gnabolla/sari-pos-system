@@ -1,11 +1,13 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/database.php';
 require_once 'includes/functions.php';
 
 // If already logged in, redirect to dashboard
 if (isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: /sari/');
     exit();
 }
 
@@ -133,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_SESSION['tenant_name'] = $store_name;
                 
                 // Redirect to welcome/onboarding page
-                header('Location: welcome.php');
+                header('Location: /sari/welcome');
                 exit();
             }
         } catch (Exception $e) {
@@ -334,7 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </form>
                 
                 <div class="text-center mt-3">
-                    <p>Already have an account? <a href="login.php">Login here</a></p>
+                    <p>Already have an account? <a href="/sari/login">Login here</a></p>
                 </div>
             </div>
         </div>

@@ -16,7 +16,7 @@ function format_currency($amount) {
 
 function check_session() {
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['tenant_id'])) {
-        header('Location: login.php');
+        header('Location: /sari/login');
         exit();
     }
 }
