@@ -1,0 +1,36 @@
+# PHP
+*.log
+*.tmp
+*.cache
+
+# Config files with sensitive data
+config/database.php
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Composer
+vendor/
+composer.lock
+
+# Environment files
+.env
+.env.local
+
+# Uploaded files
+uploads/
+upload/
+
+# Session files
+sessions/
+
+# Temporary files
+temp/
+tmp/
