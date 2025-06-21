@@ -1,9 +1,5 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require_once 'config/database.php';
-require_once 'includes/functions.php';
+global $db; // Access the global database connection
 
 if (isset($_SESSION['user_id'])) {
     header('Location: /sari/dashboard');
@@ -49,67 +45,71 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Sari-Sari Store POS</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
-        }
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .login-header h2 {
-            color: #333;
-            font-weight: 600;
-        }
-        .login-header p {
-            color: #666;
-            margin: 0;
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
 </head>
-<body>
-    <div class="login-card">
-        <div class="login-header">
-            <h2>Sari-Sari Store POS</h2>
-            <p>Please sign in to continue</p>
+<body class="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="flex justify-center mb-4">
+                <div class="bg-blue-100 p-3 rounded-full">
+                    <i class="bi bi-shop text-3xl text-blue-600"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Sari-Sari Store POS</h2>
+            <p class="text-gray-600">Please sign in to continue</p>
         </div>
         
         <?php if ($error_message): ?>
-            <div class="alert alert-danger" role="alert">
-                <?php echo $error_message; ?>
+            <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-exclamation-triangle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700"><?php echo $error_message; ?></p>
+                    </div>
+                </div>
             </div>
         <?php endif; ?>
         
-        <form method="POST">
-            <div class="mb-3">
-                <label for="username" class="form-label">Email</label>
-                <input type="email" class="form-control" id="username" name="username" required>
+        <form method="POST" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="bi bi-envelope text-gray-400"></i>
+                    </div>
+                    <input type="email" id="username" name="username" required 
+                           class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
             </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+            
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="bi bi-lock text-gray-400"></i>
+                    </div>
+                    <input type="password" id="password" name="password" required 
+                           class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign In</button>
+            
+            <button type="submit" 
+                    class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                <i class="bi bi-box-arrow-in-right mr-2"></i>Sign In
+            </button>
         </form>
         
-        <div class="mt-3 text-center">
-            <p class="mb-2">Don't have a store yet? <a href="/sari/register" class="text-primary fw-bold">Register for Free</a></p>
+        <div class="mt-8 text-center">
+            <p class="text-gray-600">
+                Don't have a store yet? 
+                <a href="/sari/register" class="text-blue-600 font-semibold hover:text-blue-800 transition duration-200">
+                    Register for Free
+                </a>
+            </p>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

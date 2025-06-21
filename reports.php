@@ -1,11 +1,10 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require_once 'config/database.php';
-require_once 'includes/functions.php';
+global $db;
 
-check_session();
+if (!isset($_SESSION['tenant_id'])) {
+    header('Location: /sari/login');
+    exit();
+}
 
 $page_title = "Reports";
 $tenant_id = $_SESSION['tenant_id'];
@@ -79,189 +78,205 @@ $payment_methods = $payment_methods_stmt->fetchAll(PDO::FETCH_ASSOC);
 include 'views/header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-3">
-            <?php include 'views/sidebar.php'; ?>
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Header with Date Filter -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Reports & Analytics</h1>
+                <p class="text-gray-600">Track your business performance and insights</p>
+            </div>
+            <form method="GET" class="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700 whitespace-nowrap">From:</label>
+                    <input type="date" name="start_date" value="<?php echo $start_date; ?>" 
+                           class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700 whitespace-nowrap">To:</label>
+                    <input type="date" name="end_date" value="<?php echo $end_date; ?>" 
+                           class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition duration-200">
+                    Apply Filter
+                </button>
+            </form>
         </div>
-        <div class="col-md-9">
-            <div class="main-content">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Reports & Analytics</h2>
-                    <form method="GET" class="d-flex gap-2">
-                        <input type="date" name="start_date" value="<?php echo $start_date; ?>" class="form-control form-control-sm">
-                        <input type="date" name="end_date" value="<?php echo $end_date; ?>" class="form-control form-control-sm">
-                        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-                    </form>
-                </div>
-                
-                <!-- Sales Summary Cards -->
-                <div class="row mb-4">
-                    <div class="col-md-3">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Total Sales</h6>
-                                        <h4><?php echo format_currency($sales_summary['total_sales'] ?? 0); ?></h4>
-                                    </div>
-                                    <div class="align-self-center">
-                                        <i class="bi bi-currency-dollar display-4"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Total Sales -->
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-100 text-sm font-medium">Total Sales</p>
+                        <p class="text-2xl font-bold"><?php echo format_currency($sales_summary['total_sales'] ?? 0); ?></p>
                     </div>
-                    <div class="col-md-3">
-                        <div class="card bg-success text-white">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Transactions</h6>
-                                        <h4><?php echo number_format($sales_summary['total_transactions'] ?? 0); ?></h4>
-                                    </div>
-                                    <div class="align-self-center">
-                                        <i class="bi bi-receipt display-4"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-info text-white">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Avg Transaction</h6>
-                                        <h4><?php echo format_currency($sales_summary['avg_transaction'] ?? 0); ?></h4>
-                                    </div>
-                                    <div class="align-self-center">
-                                        <i class="bi bi-calculator display-4"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-warning text-white">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Total Discounts</h6>
-                                        <h4><?php echo format_currency($sales_summary['total_discounts'] ?? 0); ?></h4>
-                                    </div>
-                                    <div class="align-self-center">
-                                        <i class="bi bi-percent display-4"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="bg-blue-400 bg-opacity-30 p-3 rounded-full">
+                        <i class="bi bi-currency-dollar text-2xl"></i>
                     </div>
                 </div>
-                
-                <div class="row">
-                    <!-- Daily Sales Chart -->
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>Daily Sales Trend</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="dailySalesChart" width="400" height="200"></canvas>
-                            </div>
-                        </div>
+            </div>
+
+            <!-- Total Transactions -->
+            <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-green-100 text-sm font-medium">Transactions</p>
+                        <p class="text-2xl font-bold"><?php echo number_format($sales_summary['total_transactions'] ?? 0); ?></p>
                     </div>
-                    
-                    <!-- Payment Methods -->
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>Payment Methods</h5>
-                            </div>
-                            <div class="card-body">
-                                <?php foreach ($payment_methods as $method): ?>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span><?php echo ucfirst($method['payment_method']); ?></span>
-                                    <div class="text-end">
-                                        <div><strong><?php echo format_currency($method['total']); ?></strong></div>
-                                        <small class="text-muted"><?php echo $method['count']; ?> transactions</small>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
+                    <div class="bg-green-400 bg-opacity-30 p-3 rounded-full">
+                        <i class="bi bi-receipt text-2xl"></i>
                     </div>
                 </div>
-                
-                <div class="row mt-4">
-                    <!-- Top Selling Products -->
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>Top Selling Products</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Product</th>
-                                                <th>Qty Sold</th>
-                                                <th>Revenue</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($top_products as $product): ?>
-                                            <tr>
-                                                <td><?php echo htmlspecialchars($product['name']); ?></td>
-                                                <td><?php echo number_format($product['total_sold']); ?></td>
-                                                <td><?php echo format_currency($product['total_revenue']); ?></td>
-                                            </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
+            </div>
+
+            <!-- Average Transaction -->
+            <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-purple-100 text-sm font-medium">Avg Transaction</p>
+                        <p class="text-2xl font-bold"><?php echo format_currency($sales_summary['avg_transaction'] ?? 0); ?></p>
+                    </div>
+                    <div class="bg-purple-400 bg-opacity-30 p-3 rounded-full">
+                        <i class="bi bi-calculator text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Discounts -->
+            <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-orange-100 text-sm font-medium">Total Discounts</p>
+                        <p class="text-2xl font-bold"><?php echo format_currency($sales_summary['total_discounts'] ?? 0); ?></p>
+                    </div>
+                    <div class="bg-orange-400 bg-opacity-30 p-3 rounded-full">
+                        <i class="bi bi-percent text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts and Analytics -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Daily Sales Chart -->
+            <div class="lg:col-span-2 bg-white rounded-lg shadow-md">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+                    <h3 class="text-lg font-semibold text-gray-800">Daily Sales Trend</h3>
+                </div>
+                <div class="p-6">
+                    <canvas id="dailySalesChart" height="200"></canvas>
+                </div>
+            </div>
+            
+            <!-- Payment Methods -->
+            <div class="bg-white rounded-lg shadow-md">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+                    <h3 class="text-lg font-semibold text-gray-800">Payment Methods</h3>
+                </div>
+                <div class="p-6">
+                    <?php if (empty($payment_methods)): ?>
+                        <div class="text-center text-gray-400 py-8">
+                            <i class="bi bi-credit-card text-3xl mb-2 block"></i>
+                            <p class="text-sm">No transactions found</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="space-y-4">
+                            <?php foreach ($payment_methods as $method): ?>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-3 h-3 rounded-full <?php echo $method['payment_method'] == 'cash' ? 'bg-green-500' : ($method['payment_method'] == 'card' ? 'bg-blue-500' : 'bg-purple-500'); ?>"></div>
+                                    <span class="font-medium text-gray-900"><?php echo ucfirst($method['payment_method']); ?></span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-semibold text-gray-900"><?php echo format_currency($method['total']); ?></div>
+                                    <div class="text-sm text-gray-500"><?php echo $method['count']; ?> transactions</div>
                                 </div>
                             </div>
+                            <?php endforeach; ?>
                         </div>
-                    </div>
-                    
-                    <!-- Low Stock Alert -->
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>Low Stock Alert</h5>
-                            </div>
-                            <div class="card-body">
-                                <?php if (empty($low_stock_products)): ?>
-                                    <div class="text-center text-muted py-4">
-                                        <i class="bi bi-check-circle display-4 text-success"></i>
-                                        <p>All products are well stocked!</p>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm">
-                                            <thead>
-                                                <tr>
-                                                    <th>Product</th>
-                                                    <th>Current</th>
-                                                    <th>Reorder At</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php foreach ($low_stock_products as $product): ?>
-                                                <tr class="table-warning">
-                                                    <td><?php echo htmlspecialchars($product['name']); ?></td>
-                                                    <td><span class="low-stock"><?php echo $product['stock_quantity']; ?></span></td>
-                                                    <td><?php echo $product['reorder_level']; ?></td>
-                                                </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Top Selling Products -->
+            <div class="bg-white rounded-lg shadow-md">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+                    <h3 class="text-lg font-semibold text-gray-800">Top Selling Products</h3>
+                </div>
+                <div class="p-6">
+                    <?php if (empty($top_products)): ?>
+                        <div class="text-center text-gray-400 py-8">
+                            <i class="bi bi-graph-up text-3xl mb-2 block"></i>
+                            <p class="text-sm">No sales data available</p>
                         </div>
-                    </div>
+                    <?php else: ?>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th class="text-left py-3 text-sm font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                        <th class="text-left py-3 text-sm font-medium text-gray-500 uppercase tracking-wider">Qty Sold</th>
+                                        <th class="text-left py-3 text-sm font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <?php foreach ($top_products as $index => $product): ?>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-3 pr-4">
+                                            <div class="flex items-center">
+                                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                                    <span class="text-xs font-semibold text-blue-600"><?php echo $index + 1; ?></span>
+                                                </div>
+                                                <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name']); ?></div>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 text-sm text-gray-900"><?php echo number_format($product['total_sold']); ?></td>
+                                        <td class="py-3 text-sm font-semibold text-green-600"><?php echo format_currency($product['total_revenue']); ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <!-- Low Stock Alert -->
+            <div class="bg-white rounded-lg shadow-md">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+                    <h3 class="text-lg font-semibold text-gray-800">Low Stock Alert</h3>
+                </div>
+                <div class="p-6">
+                    <?php if (empty($low_stock_products)): ?>
+                        <div class="text-center text-green-400 py-8">
+                            <i class="bi bi-check-circle text-4xl mb-3 block"></i>
+                            <p class="text-lg font-medium text-green-600 mb-1">All Good!</p>
+                            <p class="text-sm text-gray-500">All products are well stocked</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="space-y-3">
+                            <?php foreach ($low_stock_products as $product): ?>
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h4 class="text-sm font-medium text-yellow-800"><?php echo htmlspecialchars($product['name']); ?></h4>
+                                        <p class="text-xs text-yellow-600 mt-1">Reorder level: <?php echo $product['reorder_level']; ?></p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                            <?php echo $product['stock_quantity']; ?> left
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -270,7 +285,7 @@ include 'views/header.php';
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Daily Sales Chart
+// Daily Sales Chart with enhanced styling
 const dailySalesData = <?php echo json_encode($daily_sales); ?>;
 const ctx = document.getElementById('dailySalesChart').getContext('2d');
 
@@ -289,44 +304,96 @@ new Chart(ctx, {
         datasets: [{
             label: 'Daily Sales (₱)',
             data: salesData,
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.1)',
-            tension: 0.1,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
             yAxisID: 'y'
         }, {
             label: 'Transactions',
             data: transactionData,
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.1)',
-            tension: 0.1,
+            borderColor: 'rgb(16, 185, 129)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: 'rgb(16, 185, 129)',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
             yAxisID: 'y1'
         }]
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         interaction: {
             mode: 'index',
             intersect: false,
         },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    usePointStyle: true,
+                    padding: 20,
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#ffffff',
+                bodyColor: '#ffffff',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderWidth: 1,
+                cornerRadius: 8,
+                callbacks: {
+                    label: function(context) {
+                        if (context.datasetIndex === 0) {
+                            return 'Sales: ₱' + context.parsed.y.toLocaleString();
+                        } else {
+                            return 'Transactions: ' + context.parsed.y;
+                        }
+                    }
+                }
+            }
+        },
         scales: {
             x: {
                 display: true,
-                title: {
-                    display: true,
-                    text: 'Date'
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)',
+                    drawBorder: false
+                },
+                ticks: {
+                    color: '#6b7280',
+                    font: {
+                        size: 11
+                    }
                 }
             },
             y: {
                 type: 'linear',
                 display: true,
                 position: 'left',
-                title: {
-                    display: true,
-                    text: 'Sales Amount (₱)'
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)',
+                    drawBorder: false
                 },
                 ticks: {
+                    color: '#6b7280',
+                    font: {
+                        size: 11
+                    },
                     callback: function(value) {
-                        return '₱' + value.toFixed(2);
+                        return '₱' + value.toLocaleString();
                     }
                 }
             },
@@ -334,24 +401,15 @@ new Chart(ctx, {
                 type: 'linear',
                 display: true,
                 position: 'right',
-                title: {
-                    display: true,
-                    text: 'Number of Transactions'
-                },
                 grid: {
                     drawOnChartArea: false,
+                    color: 'rgba(0, 0, 0, 0.05)',
+                    drawBorder: false
                 },
-            }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        if (context.datasetIndex === 0) {
-                            return 'Sales: ₱' + context.parsed.y.toFixed(2);
-                        } else {
-                            return 'Transactions: ' + context.parsed.y;
-                        }
+                ticks: {
+                    color: '#6b7280',
+                    font: {
+                        size: 11
                     }
                 }
             }

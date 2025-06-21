@@ -29,9 +29,14 @@ if (!class_exists('FastRoute\\simpleDispatcher')) {
                 $uri = substr($uri, 0, $pos);
             }
             
-            // Remove base path
-            $uri = str_replace('/sari', '', $uri);
+            // Remove base path more carefully
+            if (strpos($uri, '/sari') === 0) {
+                $uri = substr($uri, 5); // Remove '/sari'
+            }
             if (empty($uri)) $uri = '/';
+            
+            // Debug logging
+            error_log("Routing: Method=$method, URI=$uri, Available routes: " . print_r(array_keys($this->routes[$method] ?? []), true));
             
             if (isset($this->routes[$method][$uri])) {
                 return [1, $this->routes[$method][$uri], []]; // FOUND

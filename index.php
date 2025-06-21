@@ -1,38 +1,38 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/includes/functions.php';
+// Use simple bootstrap for now
+require_once __DIR__ . '/bootstrap-simple.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Load routing dependencies
+require_once __DIR__ . '/vendor/autoload.php';
 
 $dispatcher = simpleDispatcher(function($r) {
     // Public routes
     $r->get('/', 'HomeController');
     $r->get('/login', 'LoginController');
+    $r->post('/login', 'LoginController');
     $r->get('/register', 'RegisterController');
+    $r->post('/register', 'RegisterController');
     $r->get('/logout', 'LogoutController');
     
     // Protected routes
     $r->get('/dashboard', 'DashboardController');
     $r->get('/pos', 'PosController');
     $r->get('/inventory', 'InventoryController');
+    $r->post('/inventory', 'InventoryController');
     $r->get('/products', 'ProductsController');
+    $r->post('/products', 'ProductsController');
     $r->get('/sales', 'SalesController');
     $r->get('/reports', 'ReportsController');
     $r->get('/users', 'UsersController');
+    $r->post('/users', 'UsersController');
     $r->get('/settings', 'SettingsController');
+    $r->post('/settings', 'SettingsController');
     $r->get('/welcome', 'WelcomeController');
     
     // API routes
     $r->post('/api/process-sale', 'ProcessSaleController');
     $r->get('/api/dashboard-stats', 'DashboardStatsController');
     $r->get('/api/sale-details', 'SaleDetailsController');
-    $r->post('/api/sync-sale', 'SyncSaleController');
-    $r->post('/api/sync-product', 'SyncProductController');
-    $r->post('/api/sync-inventory', 'SyncInventoryController');
-    $r->get('/api/ping', 'PingController');
 });
 
 $httpMethod = $_SERVER['REQUEST_METHOD'];
@@ -49,7 +49,7 @@ switch ($routeInfo[0]) {
         http_response_code(404);
         $page_title = "404 - Page Not Found";
         include 'views/header.php';
-        echo '<div class="container"><div class="row justify-content-center mt-5"><div class="col-md-6"><div class="card"><div class="card-body text-center"><h1 class="display-1">404</h1><h3>Page Not Found</h3><p>The page you are looking for does not exist.</p><a href="/" class="btn btn-primary">Go to Dashboard</a></div></div></div></div></div>';
+        echo '<div class="min-h-screen flex items-center justify-center px-4"><div class="max-w-md w-full text-center"><div class="mb-8"><h1 class="text-9xl font-bold text-gray-300">404</h1><h2 class="text-2xl font-semibold text-gray-800 mb-4">Page Not Found</h2><p class="text-gray-600 mb-8">The page you are looking for does not exist.</p><a href="/sari/" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition duration-200">Go to Dashboard</a></div></div></div>';
         include 'views/footer.php';
         break;
     case FASTROUTE_METHOD_NOT_ALLOWED:
@@ -66,15 +66,14 @@ switch ($routeInfo[0]) {
 function handleRoute($handler, $vars) {
     $protectedRoutes = ['DashboardController', 'PosController', 'InventoryController', 'ProductsController', 'SalesController', 'ReportsController', 'UsersController', 'SettingsController'];
     
-    if (in_array($handler, $protectedRoutes) && !isset($_SESSION['tenant_id'])) {
-        header('Location: /login');
-        exit();
+    if (in_array($handler, $protectedRoutes)) {
+        require_login('/sari/login');
     }
     
     switch ($handler) {
         case 'HomeController':
-            if (isset($_SESSION['user_id'])) {
-                header('Location: /dashboard');
+            if (is_logged_in()) {
+                header('Location: /sari/dashboard');
                 exit();
             } else {
                 require 'landing.php';
@@ -124,18 +123,6 @@ function handleRoute($handler, $vars) {
             break;
         case 'SaleDetailsController':
             require 'api/sale_details.php';
-            break;
-        case 'SyncSaleController':
-            require 'api/sync_sale.php';
-            break;
-        case 'SyncProductController':
-            require 'api/sync_product.php';
-            break;
-        case 'SyncInventoryController':
-            require 'api/sync_inventory.php';
-            break;
-        case 'PingController':
-            require 'api/ping.php';
             break;
         default:
             http_response_code(404);

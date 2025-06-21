@@ -1,9 +1,5 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require_once 'config/database.php';
-require_once 'includes/functions.php';
+global $db; // Access the global database connection
 
 // If already logged in, redirect to dashboard
 if (isset($_SESSION['user_id'])) {
